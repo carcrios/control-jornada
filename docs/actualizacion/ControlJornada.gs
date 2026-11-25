@@ -1,4 +1,4 @@
-/* Control de jornada 1.8.0 — pega este archivo en Apps Script (Extensiones → Apps Script) con el nombre ControlJornada.
+/* Control de jornada 1.8.1 — pega este archivo en Apps Script (Extensiones → Apps Script) con el nombre ControlJornada.
    Tus datos de proveedor van aparte, en Proveedor.gs. Generado por herramientas/empaquetar.js: no lo edites a mano. */
 
 // ===================== Motor.gs =====================
@@ -342,7 +342,7 @@ var Motor = (function () {
  * Base: acceso a datos, seguridad, configuración y enrutador de la API.
  * Una hoja de cálculo = una empresa. Nada de la empresa está escrito en el código: todo vive en la hoja Config.
  */
-var VERSION = '1.8.0';
+var VERSION = '1.8.1';
 // Datos del proveedor (dirección de la página, clave de licencias y panel): viven en el archivo Proveedor.gs
 // (var PROVEEDOR = { app, clave, panel }), que la actualización automática nunca toca.
 function prov_(k) { try { return (typeof PROVEEDOR !== 'undefined' && PROVEEDOR && PROVEEDOR[k]) ? String(PROVEEDOR[k]) : ''; } catch (e) { return ''; } }
@@ -392,7 +392,7 @@ var TIPOS_ALERTA = {
 };
 
 var CFG_DEF = {
-  empresa: { nombre: 'Mi empresa', nit: '', direccion: '', telefono: '', logo: '', color: '', correoDatos: '', responsableDatos: '', titularSoftware: '' },
+  empresa: { nombre: 'Mi empresa', nit: '', direccion: '', telefono: '', logo: '', color: '', correoDatos: '', responsableDatos: '', titularSoftware: '', icono: 'soldador' },
   urlApp: '', actualizarSolo: true, reportarProveedor: true, contactoProveedor: '', zona: 'America/Bogota', periodoNomina: 'quincenal',
   marcarAlmuerzo: false, fotoProbabilidad: 30, geocercaEstricta: false, soloCentroAsignado: false, maxPrecisionGps: 120, qrVentanaSeg: 60, fotoEnAnomalia: true, radioDefecto: 150, toleranciaMin: 5, recordatorioMin: 5, recordatorioCorreo: false,
   factorPrestacional: 0, fatigaHorasMax: 10, fatigaAvisoMin: 30, codigosConcepto: {},
@@ -1967,7 +1967,7 @@ function a_adminConfigGuardar(d, adm) {
     else if (typeof def === 'boolean') v = !!v;
     else if (typeof def === 'string') v = txt_(v, 300);
     else if (k === 'legal') { var L = {}; Object.keys(v || {}).forEach(function (q) { if (!(q in Motor.DEF)) return; if (q === 'festivosExtra') L[q] = (v[q] || []).filter(function (f) { return /^\d{4}-\d\d-\d\d$/.test(f); }); else if (typeof Motor.DEF[q] === 'string') L[q] = /^\d\d:\d\d$/.test(v[q]) ? v[q] : Motor.DEF[q]; else if (typeof Motor.DEF[q] === 'boolean') L[q] = !!v[q]; else if (v[q] !== '' && v[q] !== null && !isNaN(+v[q])) L[q] = +v[q]; }); v = L; }
-    else if (k === 'empresa') { var e = {}; Object.keys(CFG_DEF.empresa).forEach(function (q) { e[q] = txt_((v || {})[q], q === 'logo' ? 40000 : 200); }); if (e.logo && !/^data:image\/(png|jpeg|webp);base64,/.test(e.logo) && !/^https:\/\//.test(e.logo)) e.logo = ''; if (e.color && !/^#[0-9a-fA-F]{6}$/.test(e.color)) e.color = ''; v = e; }
+    else if (k === 'empresa') { var e = {}; Object.keys(CFG_DEF.empresa).forEach(function (q) { e[q] = txt_((v || {})[q], q === 'logo' ? 40000 : 200); }); if (e.logo && !/^data:image\/(png|jpeg|webp);base64,/.test(e.logo) && !/^https:\/\//.test(e.logo)) e.logo = ''; if (e.color && !/^#[0-9a-fA-F]{6}$/.test(e.color)) e.color = ''; if (['soldador', 'casco', 'persona', 'ninguno'].indexOf(e.icono) < 0) e.icono = 'soldador'; v = e; }
     else if (k === 'contactosEmergencia') { v = (Array.isArray(v) ? v : []).slice(0, 10).map(function (x) { return { nombre: txt_(x && x.nombre, 80), rol: txt_(x && x.rol, 40), telefono: soloDigitos_(x && x.telefono).substr(0, 15) }; }).filter(function (x) { return x.nombre && x.telefono; }); }
     else if (k === 'codigosConcepto') { var cc = {}; Object.keys(v || {}).forEach(function (q) { if (/^[A-Z]{2,5}$/.test(q) && txt_(v[q], 20)) cc[q] = txt_(v[q], 20); }); v = cc; }
     else if (k === 'alertas') { var al = {}; Object.keys(TIPOS_ALERTA).forEach(function (q) { var x = (v || {})[q] || {}; al[q] = { activo: x.activo !== false, correos: txt_(x.correos, 300) }; }); v = al; }
@@ -2794,10 +2794,14 @@ function urlServicio_() { var g = prop_('URL_SERVICIO'); if (g) return g; try { 
 // ¿Responde esta URL como el servidor de Control de jornada, abierta por cualquier persona sin iniciar sesión?
 function respondeServicio_(url) {
   if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url || '')) return { ok: false, por: 'formato' };
-  try { var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true }), t = r.getContentText() || '';
-    if (/Control de jornada/.test(t) && !/Panel de proveedor/.test(t)) return { ok: true };
-    if (/Panel de proveedor/.test(t)) return { ok: false, por: 'panel' };
-    if (r.getResponseCode() === 404 || /does not exist|no existe/i.test(t)) return { ok: false, por: 'borrada' };
+  // Se prueba igual que lo hace el celular: una petición POST a «publico» que debe devolver JSON
+  try {
+    var r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'text/plain;charset=utf-8', payload: JSON.stringify({ a: 'publico', d: {} }), muteHttpExceptions: true, followRedirects: true });
+    var t = r.getContentText() || '', j = null; try { j = JSON.parse(t); } catch (x) { }
+    if (j && j.ok) return { ok: true };
+    if (j && /NIT no v/.test(j.error || '')) return { ok: false, por: 'panel' };
+    if (j) return { ok: false, por: 'otro' };
+    if (r.getResponseCode() === 404 || /does not exist|no existe|not found/i.test(t)) return { ok: false, por: 'borrada' };
     if (/accounts\.google|ServiceLogin|Sign in|Iniciar sesi/i.test(t)) return { ok: false, por: 'acceso' };
     return { ok: false, por: 'otro' };
   } catch (e) { return { ok: false, por: 'red' }; }
@@ -2826,7 +2830,7 @@ function revisarInstalacion() {
   if (app) try { okApp = UrlFetchApp.fetch(app, { muteHttpExceptions: true }).getResponseCode() === 200; } catch (x) { }
   bien('Página de GitHub Pages en línea (' + (app || 'sin dirección') + ')', okApp, 'Revisa que la carpeta docs esté subida y que GitHub Pages esté activo (Settings → Pages → rama main, carpeta /docs).');
   var act = ScriptApp.getProjectTriggers().length; bien('Tareas automáticas instaladas (' + act + ')', act >= 3, 'Menú Control de jornada → 1. Instalar.');
-  var adm = leer('Usuarios').some(function (u) { return u.rol === 'admin'; }); bien('Primer administrador registrado', adm, 'Abre el enlace de la empresa, toca «Soy el administrador» y usa el código de «Ver código del primer administrador».');
+  var adm = leer('Usuarios').some(function (u) { return u.rol === 'admin'; }); bien('Primer administrador registrado', adm, p.ok ? 'Abre el enlace de arriba, escribe tu cédula y el código de «Control de jornada → Ver código del primer administrador», y crea tu contraseña.' : 'Primero arregla el servidor (primera fila).');
   // Se reporta al panel en este momento: la empresa aparece de inmediato en la consola del proveedor
   var panel = prov_('panel'), rep = null;
   if (panel) { try { rep = reportarAlPanel_(); } catch (x) { rep = { ok: false, mensaje: String(x.message || x) }; } }
@@ -2836,10 +2840,10 @@ function revisarInstalacion() {
   var ss = SpreadsheetApp.getActive(), h = ss.getSheetByName('Revisión') || ss.insertSheet('Revisión', 0);
   h.clear(); h.setColumnWidth(1, 430); h.setColumnWidth(2, 640);
   var todo = filas.every(function (f) { return f[0].charAt(0) === '✅'; });
-  var cab = [[todo ? 'TODO ESTÁ BIEN. Enlace para los celulares:' : 'HAY COSAS POR ARREGLAR (columna B dice cómo):', ''], [e.enlace || '', ''], ['', ''], ['Revisión', 'Cómo arreglarlo']];
+  var cab = [[todo ? 'TODO ESTÁ BIEN. Enlace para los celulares:' : 'HAY COSAS POR ARREGLAR (columna B dice cómo, de arriba hacia abajo):', ''], [p.ok ? (e.enlace || '') : '', ''], ['', ''], ['Revisión', 'Cómo arreglarlo']];
   h.getRange(1, 1, cab.length + filas.length, 2).setValues(cab.concat(filas)).setWrap(true).setVerticalAlignment('top');
   h.getRange(1, 1).setFontWeight('bold').setFontSize(13).setFontColor(todo ? '#1B7A3E' : '#B3261E'); h.getRange(4, 1, 1, 2).setFontWeight('bold');
-  if (e.enlace) h.getRange(2, 1).setFormula('=HYPERLINK("' + e.enlace + '","' + e.enlace + '")');
+  if (e.enlace && p.ok) h.getRange(2, 1).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(e.enlace).setLinkUrl(e.enlace).build());
   ss.setActiveSheet(h);
 }
 function enlaceEmpresa_() {
@@ -2859,7 +2863,7 @@ function verEnlace() {
     : [['Falta la dirección de la página: en Apps Script, archivo Proveedor.gs, llena app con tu enlace de GitHub Pages. Mientras tanto, este es el código de conexión (pégalo en la página de la aplicación):'], [e.id]];
   h.getRange(1, 1, filas.length, 1).setValues(filas).setWrap(true);
   h.getRange(2, 1).setFontSize(13).setFontWeight('bold').setFontColor('#0E4A5A');
-  if (e.enlace) h.getRange(2, 1).setFormula('=HYPERLINK("' + e.enlace + '","' + e.enlace + '")');
+  if (e.enlace) h.getRange(2, 1).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(e.enlace).setLinkUrl(e.enlace).build());
   ss.setActiveSheet(h); h.setActiveRange(h.getRange(2, 1));
   try { SpreadsheetApp.getUi().alert('Enlace de tu empresa', (e.enlace || e.id) + '\n\nTambién quedó en la pestaña «Enlace» de esta hoja.', SpreadsheetApp.getUi().ButtonSet.OK); } catch (x) { Logger.log(e.enlace || e.id); }
 }
