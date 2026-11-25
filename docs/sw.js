@@ -1,6 +1,6 @@
 // Service worker: deja la aplicación instalable y usable sin señal desde la primera visita.
 // La API (Apps Script) nunca se guarda en caché: las marcaciones sin señal las maneja la bandeja de salida de la app.
-const VERSION = 'jornada-v1.8.0';
+const VERSION = 'jornada-v1.8.1';
 const BASE = ['./', './config.js', './manifest.webmanifest', './icono-192.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {

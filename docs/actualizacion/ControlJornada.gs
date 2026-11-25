@@ -3294,6 +3294,8 @@ function a_adminActualizar(d, adm) {
   if (d.reportar !== undefined) { cfgSet_('reportarProveedor', !!d.reportar); auditar_(adm.cedula, 'reporte_proveedor', { activo: !!d.reportar }); return a_adminVersion(d, adm); }
   if (d.volver) { var v = volverVersionAnterior_(); auditar_(adm.cedula, 'volver_version', { a: prop_('ACT_ANTERIOR') }); return v; }
   if (prov_('panel')) try { reportarAlPanel_(); } catch (e) { }
-  var r = actualizar_('web'); auditar_(adm.cedula, 'actualizar_ahora', { resultado: r.mensaje }); return r;
+  var r = actualizar_('web'); auditar_(adm.cedula, 'actualizar_ahora', { resultado: r.mensaje });
+  if (r && r.ok === false) throw E_('DATOS', r.mensaje); // así la pantalla siempre muestra por qué no se actualizó
+  return r;
 }
 function a_adminLicenciaSincronizar(d, adm) { var r = reportarAlPanel_(); if (!r.ok) throw E_('DATOS', r.mensaje); return r; }
