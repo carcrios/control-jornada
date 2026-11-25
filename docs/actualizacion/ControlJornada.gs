@@ -2829,6 +2829,10 @@ function revisarInstalacion() {
   var app = (cfg_().urlApp || prov_('app') || '').replace(/[#?].*$/, ''), okApp = false;
   if (app) try { okApp = UrlFetchApp.fetch(app, { muteHttpExceptions: true }).getResponseCode() === 200; } catch (x) { }
   bien('Página de GitHub Pages en línea (' + (app || 'sin dirección') + ')', okApp, 'Revisa que la carpeta docs esté subida y que GitHub Pages esté activo (Settings → Pages → rama main, carpeta /docs).');
+  // ¿Puede actualizarse sola? Se prueba leyendo su propio código con la API de Apps Script
+  var okApi = false, porApi = '';
+  try { apiScript_('get', '/content'); okApi = true; } catch (x) { porApi = String(x.message || x); }
+  bien('Actualización automática (API de Apps Script)', okApi, porApi || 'Abre https://script.google.com/home/usersettings con la cuenta ' + cuentaQueEjecuta_() + ' y activa «API de Google Apps Script».');
   var act = ScriptApp.getProjectTriggers().length; bien('Tareas automáticas instaladas (' + act + ')', act >= 3, 'Menú Control de jornada → 1. Instalar.');
   var adm = leer('Usuarios').some(function (u) { return u.rol === 'admin'; }); bien('Primer administrador registrado', adm, p.ok ? 'Abre el enlace de arriba, escribe tu cédula y el código de «Control de jornada → Ver código del primer administrador», y crea tu contraseña.' : 'Primero arregla el servidor (primera fila).');
   // Se reporta al panel en este momento: la empresa aparece de inmediato en la consola del proveedor
@@ -3110,13 +3114,15 @@ function bajar_(url) {
   return r.getContentText('UTF-8');
 }
 function huella_(t) { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, t, Utilities.Charset.UTF_8).map(function (b) { return ('0' + ((b + 256) % 256).toString(16)).slice(-2); }).join(''); }
+// Cuenta con la que corre este código (la que hizo la implementación «Ejecutar como: Yo», o quien usa el menú de la hoja)
+function cuentaQueEjecuta_() { try { return Session.getEffectiveUser().getEmail() || '(sin correo visible)'; } catch (e) { return '(sin correo visible)'; } }
 function apiScript_(metodo, ruta, cuerpo) {
   var o = { method: metodo, muteHttpExceptions: true, contentType: 'application/json', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } };
   if (cuerpo) o.payload = JSON.stringify(cuerpo);
   var r = UrlFetchApp.fetch(API_SCRIPT + ScriptApp.getScriptId() + ruta, o), cod = r.getResponseCode(), t = r.getContentText();
   if (cod >= 200 && cod < 300) return t ? JSON.parse(t) : {};
   if (cod === 403 && /has not been used|is disabled|SERVICE_DISABLED|has not enabled the Apps Script API/i.test(t))
-    throw E_('API_DESACTIVADA', 'Falta un permiso de una sola vez: abre https://script.google.com/home/usersettings con la cuenta dueña de esta hoja y activa «API de Google Apps Script». Si es una cuenta de empresa (Workspace), puede que su administrador lo tenga bloqueado.');
+    throw E_('API_DESACTIVADA', 'Google dice que la «API de Google Apps Script» está apagada para la cuenta ' + cuentaQueEjecuta_() + ' (con esa cuenta corre el servidor de la empresa). Abre https://script.google.com/home/usersettings con ESA cuenta (revisa la foto de arriba a la derecha), actívala y espera 5 minutos. Si es una cuenta de empresa (Workspace), su administrador puede tenerla bloqueada.' + (/project\s+(\d+)/.test(t) ? ' [Proyecto de Google ' + t.match(/project\s+(\d+)/)[1] + ']' : ''));
   if (/version/i.test(ruta) && /limit|maximum|200/i.test(t))
     throw E_('LIMITE_VERSIONES', 'Este proyecto llegó al límite de 200 versiones de Google. Abre Extensiones → Apps Script → Administrar implementaciones → Versiones archivadas, o pide ayuda a tu proveedor.');
   if (cod === 403 || cod === 401) throw E_('PERMISO', 'Google no dejó cambiar el código (' + cod + '). El dueño de la hoja debe abrirla → menú Control de jornada → Actualizar ahora, y aceptar los permisos.');
