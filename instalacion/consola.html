@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<style>
+:root{--t:#0E4A5A;--t2:#13687D;--f:#F4F7F7;--b:#FFFFFF;--l:#D5DEDF;--x:#14242A;--s:#5B6B6E;--ok:#1B7A3E;--okf:#E5F3EA;--w:#8A5A00;--wf:#FFF4DC;--e:#B3261E;--ef:#FCE8E6;--n:#2457A6;--nf:#E6EEFB}
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--f);color:var(--x)}
+header{background:var(--t);color:#fff;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;flex:1}header small{opacity:.8}
+main{max-width:1180px;margin:0 auto;padding:16px}
+button{font:inherit;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;background:var(--t);color:#fff;min-height:40px}
+button.sec{background:#fff;color:var(--t);border:1px solid var(--l)}button.peligro{background:#fff;color:var(--e);border:1px solid #F0C4C0}
+button:disabled{opacity:.55;cursor:wait}
+input,select,textarea{font:inherit;padding:9px 10px;border:1px solid var(--l);border-radius:9px;width:100%;background:#fff;color:var(--x);min-height:40px}
+label{display:block;font-size:13px;color:var(--s)}label>span{display:block;margin-bottom:4px}
+.tarj{background:var(--b);border:1px solid var(--l);border-radius:14px;padding:16px}
+.cifras{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.cifra{background:#fff;border:1px solid var(--l);border-radius:12px;padding:12px 14px;cursor:pointer;text-align:left;color:var(--x);min-height:auto}
+.cifra b{display:block;font-size:24px}.cifra.act{outline:2px solid var(--t)}
+.barra{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.barra input{flex:1;min-width:200px}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--l);border-radius:12px;overflow:hidden}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #E8EDEC;vertical-align:top}th{font-size:12px;color:var(--s);background:#FAFBFB;font-weight:600}
+tr.fila{cursor:pointer}tr.fila:hover{background:#F7FAFA}
+.chip{display:inline-block;white-space:normal;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+.c-ok{background:var(--okf);color:var(--ok)}.c-w{background:var(--wf);color:var(--w)}.c-e{background:var(--ef);color:var(--e)}.c-n{background:var(--nf);color:var(--n)}.c-g{background:#EEF1F1;color:var(--s)}
+.suave{color:var(--s);font-size:13px}
+.velo{position:fixed;inset:0;background:rgba(10,30,36,.45);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto;z-index:5}
+.modal{background:#fff;border-radius:16px;max-width:760px;width:100%;padding:20px}
+.rej{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.mods{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;margin-top:6px}
+.mods label{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--x);border:1px solid var(--l);border-radius:9px;padding:8px 10px}
+.mods input{width:auto;min-height:auto}
+.fila-b{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.aviso{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--x);color:#fff;padding:10px 16px;border-radius:10px;z-index:9;max-width:90vw}
+.vacio{padding:30px;text-align:center}
+.entrar{max-width:380px;margin:60px auto}
+pre{white-space:pre-wrap;background:var(--f);padding:10px;border-radius:9px;font-size:13px;max-height:260px;overflow:auto}
+@media(max-width:760px){.oc{display:none}}
+</style></head><body>
+<header><h1>Panel de proveedor <small>· Control de jornada</small></h1><span id="ver" class="suave" style="color:#cfe"></span></header>
+<main id="app"><p class="suave">Panel de proveedor de Control de jornada: activo.</p></main>
+<div id="aviso" class="aviso" hidden></div>
+<script>
+var T = null, D = null, filtro = 'todas', busca = '';
+function $(s) { return document.querySelector(s); }
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function aviso(t) { var a = $('#aviso'); a.textContent = t; a.hidden = false; clearTimeout(aviso.t); aviso.t = setTimeout(function () { a.hidden = true; }, 4500); }
+function llamar(accion, d) {
+  return new Promise(function (ok, no) {
+    google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) {
+      var m = (e && e.message) || String(e); if (/SESION/.test(m)) { T = null; try { sessionStorage.removeItem('t'); } catch (x) {} pantallaEntrar('Tu sesión terminó. Vuelve a entrar.'); }
+      no(new Error(m));
+    }).consola(T, accion, d || {});
+  });
+}
+function pantallaEntrar(msg) {
+  $('#app').innerHTML = '<div class="tarj entrar"><h2 style="margin-top:0">Entrar</h2><p class="suave">' + esc(msg || 'Escribe la contraseña de la consola. Se crea en la hoja del panel: menú «Panel de proveedor → Contraseña de la consola web…».') + '</p>' +
+    '<form id="fe"><label><span>Contraseña</span><input id="pw" type="password" autocomplete="current-password" required></label><div class="fila-b"><button id="be">Entrar</button></div></form></div>';
+  $('#pw').focus();
+  $('#fe').onsubmit = function (ev) { ev.preventDefault(); var b = $('#be'); b.disabled = true; b.textContent = 'Entrando…';
+    google.script.run.withSuccessHandler(function (t) { T = t; try { sessionStorage.setItem('t', t); } catch (x) {} cargar(); })
+      .withFailureHandler(function (e) { b.disabled = false; b.textContent = 'Entrar'; aviso(e.message); }).consolaEntrar($('#pw').value); };
+}
+function cargar() { $('#app').innerHTML = '<p class="suave">Cargando empresas…</p>'; llamar('datos').then(function (d) { D = d; pintar(); }).catch(function (e) { if (!/SESION/.test(e.message)) aviso(e.message); }); }
+function claseEstado(e) { return /^Activa/.test(e) ? 'c-ok' : /^Por vencer|gracia/.test(e) ? 'c-w' : /^Vencida|Suspendida/.test(e) ? 'c-e' : /^Nueva/.test(e) ? 'c-n' : 'c-g'; }
+function grupo(x) { if (/^Nueva/.test(x.estado)) return 'nuevas'; if (/^Vencida|Suspendida/.test(x.estado)) return 'vencidas'; if (/^Por vencer/.test(x.estado)) return 'pronto'; if (sinReportar(x)) return 'silencio'; return 'activas'; }
+function sinReportar(x) { if (!x.reporte) return true; var h = new Date(D.hoy + 'T00:00:00'); h.setDate(h.getDate() - 3); return x.reporte.substr(0, 10) < h.toISOString().substr(0, 10); }
+function nombrePlan(p) { return { basico: 'Básico', profesional: 'Profesional', empresa: 'Empresa', personalizado: 'Personalizado' }[p] || '—'; }
+function pintar() {
+  var E = D.empresas, n = function (g) { return E.filter(function (x) { return g === 'todas' || grupo(x) === g || (g === 'silencio' && sinReportar(x)); }).length; };
+  $('#ver').textContent = D.aprobada ? 'Versión aprobada: ' + D.aprobada.version : 'Sin versión aprobada';
+  var cifras = [['todas', 'Empresas'], ['nuevas', 'Nuevas: asigna plan'], ['pronto', 'Por vencer'], ['vencidas', 'Vencidas o suspendidas'], ['silencio', 'Sin reportar (3 días)']]
+    .map(function (c) { return '<button class="cifra' + (filtro === c[0] ? ' act' : '') + '" data-f="' + c[0] + '"><b>' + n(c[0]) + '</b>' + c[1] + '</button>'; }).join('');
+  var lista = E.filter(function (x) { return (filtro === 'todas' || grupo(x) === filtro || (filtro === 'silencio' && sinReportar(x))) && (!busca || (x.empresa + ' ' + x.nit).toLowerCase().indexOf(busca) >= 0); })
+    .sort(function (a, b) { return (/^Nueva/.test(b.estado) - /^Nueva/.test(a.estado)) || a.empresa.localeCompare(b.empresa); });
+  var filas = lista.map(function (x) {
+    var mods = D.modulos.filter(function (m) { return x.modulos[m[0]]; }).length;
+    return '<tr class="fila" data-nit="' + esc(x.nit) + '"><td><strong>' + esc(x.empresa || '(sin nombre)') + '</strong><div class="suave">NIT ' + esc(x.nit) + '</div></td>' +
+      '<td><span class="chip ' + claseEstado(x.estado) + '">' + esc(x.estado) + '</span></td><td class="oc">' + nombrePlan(x.plan) + '<div class="suave">' + mods + ' de ' + D.modulos.length + ' módulos</div></td>' +
+      '<td>' + esc(x.vence || '—') + '</td><td class="oc">' + (x.personas === '' ? '—' : x.personas) + ' / ' + (x.max || '—') + '</td>' +
+      '<td class="oc">' + esc(x.version || '—') + '<div class="suave">' + esc(x.reporte || 'nunca') + '</div></td></tr>';
+  }).join('');
+  $('#app').innerHTML = '<div class="cifras">' + cifras + '</div>' +
+    '<div class="barra"><input id="bus" placeholder="Buscar por nombre o NIT" value="' + esc(busca) + '"><button id="nueva">+ Agregar empresa</button><button class="sec" id="version">Versión y actualizaciones</button><button class="sec" id="rec">Actualizar lista</button></div>' +
+    (lista.length ? '<div style="overflow-x:auto"><table><thead><tr><th>Empresa</th><th>Estado</th><th class="oc">Plan</th><th>Vence</th><th class="oc">Personas</th><th class="oc">Versión · último reporte</th></tr></thead><tbody>' + filas + '</tbody></table></div>'
+      : '<div class="tarj vacio"><h3 style="margin-top:0">' + (E.length ? 'No hay empresas en este filtro' : 'Todavía no hay empresas') + '</h3><p class="suave">Una empresa aparece aquí cuando su administrador escribe el <strong>NIT</strong> en <em>Configuración → Empresa</em> y usa <em>Configuración → Licencia y versión → Buscar mi licencia ahora</em> (o en su hoja: <em>Control de jornada → 3. Revisar instalación</em>). Si no quieres esperar, agrégala tú con «+ Agregar empresa» usando su NIT.</p></div>') +
+    '<p class="suave" style="margin-top:14px">Los cambios llegan a la empresa en su próximo reporte: cada noche, o al instante si su administrador toca «Buscar mi licencia ahora».</p>';
+  [].forEach.call(document.querySelectorAll('.cifra'), function (b) { b.onclick = function () { filtro = b.getAttribute('data-f'); pintar(); }; });
+  [].forEach.call(document.querySelectorAll('tr.fila'), function (r) { r.onclick = function () { editar(E.filter(function (x) { return x.nit === r.getAttribute('data-nit'); })[0]); }; });
+  $('#bus').oninput = function (e) { busca = e.target.value.toLowerCase(); var p = e.target.selectionStart; pintar(); var i = $('#bus'); i.focus(); i.setSelectionRange(p, p); };
+  $('#nueva').onclick = function () { editar(null); }; $('#rec').onclick = cargar; $('#version').onclick = verVersion;
+}
+function sumarDias(n) { var d = new Date(D.hoy + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().substr(0, 10); }
+function cerrarModal() { var v = $('.velo'); if (v) v.remove(); }
+function modal(html) { cerrarModal(); var v = document.createElement('div'); v.className = 'velo'; v.innerHTML = '<div class="modal" role="dialog" aria-modal="true">' + html + '</div>'; document.body.appendChild(v);
+  v.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarModal(); }); return v; }
+function editar(x) {
+  var nueva = !x; x = x || { empresa: '', nit: '', contacto: '', whatsapp: '', correo: '', plan: '', max: '', vence: '', modulos: { asistencia: true }, suspendida: false, notas: '', estado: 'Nueva', conectada: 'No' };
+  var planes = ['', 'basico', 'profesional', 'empresa', 'personalizado'].map(function (p) { return '<option value="' + p + '"' + (x.plan === p ? ' selected' : '') + '>' + (p ? nombrePlan(p) + (D.planes[p] ? ' (hasta ' + D.planes[p].max + ' personas)' : '') : 'Elige un plan…') + '</option>'; }).join('');
+  var mods = D.modulos.map(function (m) { return '<label><input type="checkbox" data-m="' + m[0] + '"' + (x.modulos[m[0]] || m[0] === 'asistencia' ? ' checked' : '') + (m[0] === 'asistencia' ? ' disabled' : '') + '> ' + esc(m[1]) + '</label>'; }).join('');
+  var v = modal('<h2 style="margin-top:0">' + (nueva ? 'Agregar empresa' : esc(x.empresa || 'Empresa')) + '</h2>' +
+    (nueva ? '' : '<p><span class="chip ' + claseEstado(x.estado) + '">' + esc(x.estado) + '</span> <span class="suave">· Conectada: ' + esc(x.conectada || 'No') + ' · Versión ' + esc(x.version || '—') + ' · Último reporte: ' + esc(x.reporte || 'nunca') + ' · ' + (x.personas === '' ? '—' : x.personas) + ' personas activas</span></p>') +
+    '<div class="rej"><label><span>Nombre de la empresa</span><input id="e-emp" value="' + esc(x.empresa) + '"></label>' +
+    '<label><span>NIT (solo números, sin dígito de verificación)</span><input id="e-nit" inputmode="numeric" value="' + esc(x.nit) + '"' + (nueva ? '' : ' disabled') + '></label>' +
+    '<label><span>Plan</span><select id="e-plan">' + planes + '</select></label>' +
+    '<label><span>Personas máximo</span><input id="e-max" type="number" min="1" value="' + esc(x.max) + '"></label>' +
+    '<label><span>Vence</span><input id="e-vence" type="date" value="' + esc(x.vence) + '"></label>' +
+    '<label><span>Contacto</span><input id="e-con" value="' + esc(x.contacto) + '"></label>' +
+    '<label><span>WhatsApp</span><input id="e-wa" inputmode="tel" value="' + esc(x.whatsapp) + '"></label>' +
+    '<label><span>Correo</span><input id="e-co" type="email" value="' + esc(x.correo) + '"></label></div>' +
+    '<p style="margin:16px 0 0"><strong>Módulos</strong> <span class="suave">(al elegir un plan se marcan solos; si cambias alguno queda «Personalizado»)</span></p><div class="mods">' + mods + '</div>' +
+    '<label style="margin-top:12px"><span>Notas internas</span><textarea id="e-not" rows="2">' + esc(x.notas) + '</textarea></label>' +
+    '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--e)"><input type="checkbox" id="e-sus" style="width:auto;min-height:auto"' + (x.suspendida ? ' checked' : '') + '> Suspender ya (los trabajadores siguen marcando; el panel de la empresa queda en consulta)</label>' +
+    '<div class="fila-b"><button id="g">Guardar</button>' + (nueva ? '' : '<button class="sec" data-r="1">+1 mes</button><button class="sec" data-r="3">+3 meses</button><button class="sec" data-r="6">+6 meses</button><button class="sec" data-r="12">+12 meses</button><button class="peligro" id="desc">Desconectar (reinstaló)</button>') + '<button class="sec" id="cer">Cancelar</button></div>');
+  $('#e-emp').focus();
+  $('#e-plan').onchange = function () { var p = D.planes[this.value]; if (p) { [].forEach.call(v.querySelectorAll('[data-m]'), function (c) { c.checked = p.modulos.indexOf(c.getAttribute('data-m')) >= 0; }); if (!$('#e-max').value || nueva) $('#e-max').value = p.max; }
+    if (this.value && !$('#e-vence').value) $('#e-vence').value = sumarDias(30); };
+  [].forEach.call(v.querySelectorAll('[data-m]'), function (c) { c.onchange = function () { var p = D.planes[$('#e-plan').value]; if (!p) return;
+    var igual = [].every.call(v.querySelectorAll('[data-m]'), function (k) { return k.checked === (p.modulos.indexOf(k.getAttribute('data-m')) >= 0); }); if (!igual) $('#e-plan').value = 'personalizado'; }; });
+  $('#cer').onclick = cerrarModal;
+  var ocupar = function (b, p) { [].forEach.call(v.querySelectorAll('button'), function (k) { k.disabled = true; }); var t = b.textContent; b.textContent = 'Guardando…';
+    return p.then(function (d) { D = d; cerrarModal(); pintar(); }).catch(function (e) { aviso(e.message); [].forEach.call(v.querySelectorAll('button'), function (k) { k.disabled = false; }); b.textContent = t; }); };
+  $('#g').onclick = function () {
+    var m = {}; [].forEach.call(v.querySelectorAll('[data-m]'), function (c) { m[c.getAttribute('data-m')] = c.checked; });
+    var d = { nueva: nueva, nit: $('#e-nit').value.replace(/\D/g, ''), empresa: $('#e-emp').value, plan: $('#e-plan').value, max: $('#e-max').value, vence: $('#e-vence').value, contacto: $('#e-con').value, whatsapp: $('#e-wa').value, correo: $('#e-co').value, notas: $('#e-not').value, modulos: m, suspendida: $('#e-sus').checked };
+    if (nueva && D.empresas.some(function (e) { return e.nit === d.nit; })) return aviso('Ya existe una empresa con ese NIT.');
+    if (d.plan && !d.vence) return aviso('Escribe la fecha de vencimiento.');
+    ocupar(this, llamar('guardar', d)).then(function () { aviso('Guardado. Le llega a la empresa en su próximo reporte.'); });
+  };
+  [].forEach.call(v.querySelectorAll('[data-r]'), function (b) { b.onclick = function () { var me = +b.getAttribute('data-r'); ocupar(b, llamar('renovar', { nit: x.nit, meses: me })).then(function () { aviso('Renovada ' + me + (me === 1 ? ' mes.' : ' meses.')); }); }; });
+  var bd = $('#desc'); if (bd) bd.onclick = function () { if (!confirm('Úsalo solo si la empresa reinstaló la aplicación y ya no puede reportar. Su próximo reporte la vuelve a conectar. ¿Desconectar?')) return; ocupar(bd, llamar('desconectar', { nit: x.nit })); };
+}
+function verVersion() {
+  var v = modal('<h2 style="margin-top:0">Versión y actualizaciones</h2><p class="suave">Revisando lo publicado en tu GitHub…</p>');
+  llamar('verVersion').then(function (p) {
+    var ya = D.aprobada && D.aprobada.sha256 === p.sha256, cuantas = D.empresas.filter(function (e) { return e.version === p.version; }).length;
+    v.querySelector('.modal').innerHTML = '<h2 style="margin-top:0">Versión ' + esc(p.version) + '</h2>' +
+      '<p>' + (ya ? '<span class="chip c-ok">Aprobada</span> Las empresas conectadas ya la están instalando de noche.' : '<span class="chip c-w">Sin aprobar</span> Las empresas no la instalan hasta que la apruebes.') + '</p>' +
+      '<p class="suave">Publicada: ' + esc(p.fecha || '—') + ' · Huella ' + esc(p.sha256.substr(0, 16)) + '… · ' + cuantas + ' de ' + D.empresas.length + ' empresas ya la tienen.</p>' +
+      '<p><strong>Novedades</strong></p><pre>' + esc(p.notas || '(sin notas)') + '</pre>' +
+      '<div class="fila-b">' + (ya ? '' : '<button id="ap">Aprobar esta versión</button>') + '<button class="sec" id="cer">Cerrar</button></div>';
+    $('#cer').onclick = cerrarModal;
+    var a = $('#ap'); if (a) a.onclick = function () { if (!confirm('Apruébala solo si TÚ la publicaste. Las empresas la instalan esta noche. ¿Aprobar ' + p.version + '?')) return; a.disabled = true;
+      llamar('aprobar', { sha256: p.sha256 }).then(function (d) { D = d; cerrarModal(); pintar(); aviso('Versión ' + p.version + ' aprobada.'); }).catch(function (e) { a.disabled = false; aviso(e.message); }); };
+  }).catch(function (e) { v.querySelector('.modal').innerHTML = '<h2 style="margin-top:0">Versión y actualizaciones</h2><p>' + esc(e.message) + '</p><div class="fila-b"><button class="sec" id="cer">Cerrar</button></div>'; $('#cer').onclick = cerrarModal; });
+}
+try { T = sessionStorage.getItem('t'); } catch (x) {}
+if (T) cargar(); else pantallaEntrar();
+</script></body></html>
