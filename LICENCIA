@@ -1,0 +1,15 @@
+Control de jornada — Licencia de uso
+
+Copyright (c) 2026 Carlos Andrés Ríos Castillo. Todos los derechos reservados.
+
+Este software es propietario. Se autoriza su instalación y uso únicamente a las
+empresas con las que el titular haya celebrado un acuerdo escrito de licencia.
+Sin ese acuerdo no se permite copiar, modificar, distribuir ni sublicenciar el
+código, total o parcialmente (Ley 23 de 1982, Decisión Andina 351 de 1993).
+
+Los componentes de terceros conservan sus licencias: React, InteraUI y Framer
+Motion (MIT), Lucide (ISC), SheetJS (Apache 2.0), tipografías Archivo y Public
+Sans (SIL OFL 1.1).
+
+El software se entrega "tal cual". Los cálculos de nómina son estimados y deben
+ser validados por la empresa usuaria frente a la normativa vigente.
